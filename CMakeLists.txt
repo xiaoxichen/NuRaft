@@ -76,27 +76,15 @@ if(WITH_CONAN)
 else()
     if(NOT DISABLE_ASIO)
         # === Find ASIO ===
-        if(BOOST_INCLUDE_PATH AND BOOST_LIBRARY_PATH)
+        find_package(OpenSSL CONFIG REQUIRED)
+        find_package(Boost CONFIG)
+        if (Boost_FOUND)
             # If Boost path (both include and library) is given,
             # use Boost's ASIO.
-            message(STATUS "Boost include path: " ${BOOST_INCLUDE_PATH})
-            message(STATUS "Boost library path: " ${BOOST_LIBRARY_PATH})
-
-            add_compile_definitions(USE_BOOST_ASIO)
-
-            set(ASIO_INCLUDE_DIR ${BOOST_INCLUDE_PATH})
-            set(LIBBOOST_SYSTEM "${BOOST_LIBRARY_PATH}/libboost_system.a")
-
+            set(ASIO_DEP boost::boost)
         else()
             # If not, ASIO standalone mode.
-            find_path(ASIO_INCLUDE_DIR
-                NAME asio.hpp
-                HINTS ${PROJECT_SOURCE_DIR}/asio/asio/include
-                $ENV{HOME}/local/include
-                /opt/local/include
-                /usr/local/include
-                /usr/include)
-
+            find_package(Asio CONFIG REQUIRED)
             add_compile_definitions(ASIO_STANDALONE)
         endif()
         set(ASIO_SERVICE_SRC "${ROOT_SRC}/asio_service.cxx")
@@ -202,19 +190,7 @@ if(NOT WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-pessimizing-move")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-
-    if(APPLE)
-    # include_directories(BEFORE
-    # /usr/local/opt/openssl/include
-    # )
-    # link_directories(
-    # /usr/local/opt/openssl/lib
-    # )
-    else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-    endif()
 
     if(USE_PTHREAD_EXIT)
         message(STATUS "Using ::pthread_exit for termination")
@@ -414,9 +390,11 @@ if(CODE_COVERAGE GREATER 0)
         DEPENDENCIES ${CODE_COVERAGE_DEPS}
     )
 endif()
+add_library(nuraft ${STATIC_LIB_SRC})
+target_link_libraries(nuraft ${ASIO_DEP} openssl::openssl)
 
 # === Install Targets ===
-install(TARGETS shared_lib static_lib
+install(TARGETS nuraft
     EXPORT nuraft-targets
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
